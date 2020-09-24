@@ -4,11 +4,14 @@
 # https://www.lansingstatejournal.com/story/news/local/2019/10/21/lansing-sun-new-sites-michigan-local-news-outlets/3984689002/
 # https://www.nytimes.com/2019/10/21/us/michigan-metric-media-news.html
 
+# TODO: handle 403 codes for the default python requests user agent
 
 from collections import defaultdict
 from dataclasses import dataclass
-import requests
 from typing import List
+
+import pandas as pd
+import requests
 
 
 @dataclass(frozen=True)
@@ -27,7 +30,14 @@ class AdsTxtFile:
 
 
 def ads_txt_file_from_url(url: str):
-    ads_lines = requests.get(url).text.split("\n")
+    try:
+        res = requests.get(url)
+    except requests.exceptions.RequestException as oops:
+        return AdsTxtFile(url, [])
+    if not res.ok:
+        return AdsTxtFile(url, [])
+
+    ads_lines = res.text.split("\n")
     ads_records = []
     for line in ads_lines:
         line = line.strip()
@@ -48,22 +58,30 @@ def ads_txt_file_from_url(url: str):
 
 
 
+df1 = pd.read_csv("unreliable-news/data/buzzfeed-2018-12.csv")
+urls1 = ['http://www.{}/ads.txt'.format(val) for val in df1['domain'].values]
+#df2 =
+
+
 urls = [
-    "https://www.breitbart.com/ads.txt",
-    "https://www.rt.com/ads.txt",
-    "https://www.theepochtimes.com/ads.txt",
-    "https://www.foxnews.com/ads.txt",
+#    "https://www.breitbart.com/ads.txt",
+#    "https://www.rt.com/ads.txt",
+#    "https://www.theepochtimes.com/ads.txt",
+#    "https://www.foxnews.com/ads.txt",
     "https://www.huffpost.com/ads.txt",
     #
-    "https://lansingsun.com/ads.txt",
+#    "https://lansingsun.com/ads.txt",
 
-]
+]# + urls1
 
 
 
 atfs = {}
 record_to_urls = defaultdict(set)
 for url in urls:
+    atf = ads_txt_file_from_url(url)
+    if len(atf.records) == 0:
+        sys.exit(1)
     atfs[url] = ads_txt_file_from_url(url)
     for record in atfs[url].records:
         record_to_urls[record].add(url)
