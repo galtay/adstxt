@@ -4,7 +4,12 @@
 # https://www.lansingstatejournal.com/story/news/local/2019/10/21/lansing-sun-new-sites-michigan-local-news-outlets/3984689002/
 # https://www.nytimes.com/2019/10/21/us/michigan-metric-media-news.html
 
-# TODO: handle 403 codes for the default python requests user agent
+# TODO: handle 403 codes for the default python requests user agent [done]
+# TODO: add host url and datetime scraped info to AdsTxtRecord or AdsTxtFile
+# TODO: handle ads.txt urls that redirect to html pages ...
+#    easy hack: ratio of good adstxt lines to malformed lines?
+#    better hack: detect if page is html and skip?
+
 
 from collections import defaultdict
 from dataclasses import dataclass
@@ -12,6 +17,9 @@ from typing import List
 
 import pandas as pd
 import requests
+
+
+HEADERS = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/77.0.3865.90 Safari/537.36"}
 
 
 @dataclass(frozen=True)
@@ -27,11 +35,16 @@ class AdsTxtFile:
     url: str
     records: List[AdsTxtRecord]
 
+    def __iter__(self):
+        for record in self.records:
+            yield record
+
 
 
 def ads_txt_file_from_url(url: str):
     try:
-        res = requests.get(url)
+        res = requests.get(url, headers=HEADERS)
+        print(res.status_code)
     except requests.exceptions.RequestException as oops:
         return AdsTxtFile(url, [])
     if not res.ok:
@@ -64,24 +77,23 @@ urls1 = ['http://www.{}/ads.txt'.format(val) for val in df1['domain'].values]
 
 
 urls = [
-#    "https://www.breitbart.com/ads.txt",
-#    "https://www.rt.com/ads.txt",
-#    "https://www.theepochtimes.com/ads.txt",
-#    "https://www.foxnews.com/ads.txt",
+    "https://www.breitbart.com/ads.txt",
+    "https://www.rt.com/ads.txt",
+    "https://www.theepochtimes.com/ads.txt",
+    "https://www.foxnews.com/ads.txt",
     "https://www.huffpost.com/ads.txt",
     #
-#    "https://lansingsun.com/ads.txt",
+    "https://lansingsun.com/ads.txt",
 
-]# + urls1
+] + urls1
 
 
 
 atfs = {}
 record_to_urls = defaultdict(set)
 for url in urls:
+    print(url)
     atf = ads_txt_file_from_url(url)
-    if len(atf.records) == 0:
-        sys.exit(1)
     atfs[url] = ads_txt_file_from_url(url)
     for record in atfs[url].records:
         record_to_urls[record].add(url)
